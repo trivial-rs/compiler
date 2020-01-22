@@ -1,0 +1,10 @@
+[package]
+name = "trivial-compiler"
+version = "0.1.0"
+authors = ["Ivo C.S. Wingelaar <ivo@codeforge.rs>"]
+description = "The Trivial compiler framework for Metamath Zero binary proofs"
+keywords = ["metamath-zero", "trivial"]
+license = "MIT OR Apache-2.0"
+edition = "2018"
+
+[dependencies]
