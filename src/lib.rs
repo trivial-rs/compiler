@@ -10,7 +10,7 @@ enum Ptr {
 struct HeapAlloc(Ptr);
 
 #[derive(Debug, Copy, Clone)]
-pub enum Cmd {
+enum Cmd {
     Ref { id: u32 },
     Term { id: u32 },
     TermSave { id: u32 },
@@ -51,7 +51,11 @@ fn term(
     Ptr::Term { id: ptr as u32 }
 }
 
-pub fn unify_to_proof<'a, T, F>(init_vars: u32, unify_stream: T, get_nr_args: F) -> Vec<Cmd>
+pub fn unify_to_proof<'a, T, F>(
+    init_vars: u32,
+    unify_stream: T,
+    get_nr_args: F,
+) -> Vec<opcode::Command<opcode::Proof>>
 where
     T: IntoIterator<Item = &'a opcode::Command<opcode::Unify>>,
     F: Fn(u32) -> u32,
@@ -166,7 +170,30 @@ where
         }
     }
 
-    temp
+    temp.into_iter()
+        .map(|c| match c {
+            Cmd::Ref { id } => opcode::Command {
+                opcode: opcode::Proof::Ref,
+                operand: id,
+            },
+            Cmd::Term { id } => opcode::Command {
+                opcode: opcode::Proof::Term,
+                operand: id,
+            },
+            Cmd::TermSave { id } => opcode::Command {
+                opcode: opcode::Proof::TermSave,
+                operand: id,
+            },
+            Cmd::Dummy { sort } => opcode::Command {
+                opcode: opcode::Proof::Dummy,
+                operand: sort,
+            },
+            Cmd::Hyp => opcode::Command {
+                opcode: opcode::Proof::Hyp,
+                operand: 0,
+            },
+        })
+        .collect()
 }
 
 fn expand_preorder<'a, I>(ptrs: I, out: &mut Vec<Cmd>, data: &[Term], args: &[Ptr])
