@@ -6,6 +6,11 @@ enum Ptr {
     Term { id: u32 },
 }
 
+#[derive(Debug, Copy, Clone)]
+pub enum ConversionError {
+    InvalidTermIndex,
+}
+
 #[derive(Copy, Clone)]
 struct HeapAlloc(Ptr);
 
@@ -55,10 +60,10 @@ pub fn unify_to_proof<'a, T, F>(
     init_vars: u32,
     unify_stream: T,
     get_nr_args: F,
-) -> Vec<opcode::Command<opcode::Proof>>
+) -> Result<Vec<opcode::Command<opcode::Proof>>, ConversionError>
 where
     T: IntoIterator<Item = &'a opcode::Command<opcode::Unify>>,
-    F: Fn(u32) -> u32,
+    F: Fn(u32) -> Option<u32>,
 {
     let mut command_stack = Vec::new();
     let mut counter = init_vars;
@@ -100,13 +105,15 @@ where
                 });
             }
             Unify::Term => {
-                let nr_args = get_nr_args(command.operand);
+                let nr_args =
+                    get_nr_args(command.operand).ok_or(ConversionError::InvalidTermIndex)?;
                 let ret = term(command.operand, nr_args, &mut data, &mut args, &mut stack);
 
                 stack.push(ret);
             }
             Unify::TermSave => {
-                let nr_args = get_nr_args(command.operand);
+                let nr_args =
+                    get_nr_args(command.operand).ok_or(ConversionError::InvalidTermIndex)?;
                 let ret = term(command.operand, nr_args, &mut data, &mut args, &mut stack);
 
                 let ref_var = counter;
@@ -170,7 +177,8 @@ where
         }
     }
 
-    temp.into_iter()
+    let done = temp
+        .into_iter()
         .map(|c| match c {
             Cmd::Ref { id } => opcode::Command {
                 opcode: opcode::Proof::Ref,
@@ -193,7 +201,9 @@ where
                 operand: 0,
             },
         })
-        .collect()
+        .collect();
+
+    Ok(done)
 }
 
 fn expand_preorder<'a, I>(ptrs: I, out: &mut Vec<Cmd>, data: &[Term], args: &[Ptr])
